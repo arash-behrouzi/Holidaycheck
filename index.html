@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#176653">
+  <title>School's Out | Family holiday planner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script defer src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script defer src="core.js"></script>
+  <script defer src="app.js"></script>
+  <script defer src="options.js"></script>
+  <script defer src="live.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark"><i data-lucide="sun"></i></span>school's out<span class="brand-dot">.</span></a>
+    <span class="header-location"><i data-lucide="map-pin"></i> Dortmund, Germany <span class="divider">/</span> NRW school calendar</span>
+    <button id="export" class="quiet-button" title="Download preferences and quotes"><i data-lucide="download"></i><span>Export plan</span></button>
+  </header>
+  <div class="workspace">
+    <aside class="sidebar" aria-label="Trip preferences">
+      <div class="sidebar-title"><i data-lucide="sliders-horizontal"></i><h2>Your travel brief</h2><button id="reset" class="icon-button" title="Reset preferences" aria-label="Reset preferences"><i data-lucide="rotate-ccw"></i></button><button id="close-brief" class="icon-button mobile-only" title="Close travel brief" aria-label="Close travel brief"><i data-lucide="x"></i></button></div>
+      <section class="filter-section">
+        <h3><i data-lucide="users-round"></i> The whole family</h3>
+        <div class="two-fields"><label>Adults<input id="adults" type="number" min="1" max="6" value="2"></label><label>Children<input id="children" type="number" min="0" max="6" value="3"></label></div>
+        <div id="ages" class="age-fields"></div>
+        <p class="field-note">Ages on departure, not today. Two adults assumed.</p>
+      </section>
+      <section class="filter-section">
+        <h3><i data-lucide="calendar-days"></i> When & how long</h3>
+        <label>Calendar year<select id="year"></select></label>
+        <div class="two-fields night-fields"><label>Minimum nights<input id="min-nights" type="number" min="1" max="35" value="7" required></label><label>Maximum nights<input id="max-nights" type="number" min="1" max="35" value="12" required></label></div>
+        <label>School holiday<select id="holiday"></select></label>
+        <p id="calendar-status" class="field-note" role="status">Loading NRW dates…</p>
+        <button id="refresh-calendar" class="text-button"><i data-lucide="refresh-cw"></i> Refresh dates</button>
+      </section>
+      <section class="filter-section">
+        <h3><i data-lucide="wallet"></i> Budget & priorities</h3>
+        <label class="range-label" for="budget">Total family budget <strong id="budget-label"></strong></label>
+        <input id="budget" type="range" min="1500" max="15000" step="100" value="6000">
+        <div class="range-ends"><span>€1,500</span><span>€15,000</span></div>
+        <div class="priority-heading">What matters most?</div>
+        <label class="weight" for="weight-cost"><span>Cost</span><input id="weight-cost" type="range" min="0" max="100" value="45"><output id="cost-value">45</output></label>
+        <label class="weight" for="weight-comfort"><span>Comfort</span><input id="weight-comfort" type="range" min="0" max="100" value="35"><output id="comfort-value">35</output></label>
+        <label class="weight" for="weight-time"><span>Time</span><input id="weight-time" type="range" min="0" max="100" value="20"><output id="time-value">20</output></label>
+      </section>
+      <section class="filter-section" id="airport-section">
+        <h3><i data-lucide="plane-takeoff"></i> Departure airports</h3>
+        <label class="range-label" for="max-drive">Maximum drive <strong id="drive-label"></strong></label>
+        <input id="max-drive" type="range" min="30" max="360" step="15" value="90">
+        <div id="airports" class="airport-list"></div>
+        <details><summary>Airport travel costs</summary><div class="two-fields"><label>Car cost / km (€)<input id="cost-km" type="number" min="0" max="3" step="0.01" value="0.30"></label><label>Parking / day (€)<input id="parking" type="number" min="0" max="100" step="1" value="12"></label></div></details>
+        <p class="field-note">Approximate road distance and off-peak driving time from central Dortmund. Check traffic before booking.</p>
+      </section>
+      <section class="filter-section">
+        <h3><i data-lucide="tree-palm"></i> Destinations & essentials</h3>
+        <div id="destinations" class="destination-checks"></div>
+        <label class="check"><input id="direct" type="checkbox" checked> Direct flights only</label>
+        <label>Meal plan<select id="meal-plan"><option value="all-inclusive">All inclusive</option><option value="full-board">Full board (Vollpension)</option><option value="room-only">No meals (Ohne Verpflegung)</option><option value="any">Any meal plan</option></select></label>
+      </section>
+      <a class="source-link" href="https://www.schulministerium.nrw/service/ferienordnung-nrw-bis-2029-30" target="_blank" rel="noopener noreferrer"><i data-lucide="external-link"></i> Official NRW holiday calendar</a>
+    </aside>
+    <main>
+      <div class="page-heading"><div><div class="eyebrow">LESS LOGISTICS. MORE HOLIDAY.</div><h1>Your next family escape</h1><p id="family-summary">Five travellers. One good plan. Starting from Dortmund.</p></div><div class="family-stamp"><i data-lucide="sun"></i><span>Made for<br><strong>your family</strong></span></div></div>
+      <button id="open-brief" class="quiet-button mobile-only" aria-expanded="false"><i data-lucide="sliders-horizontal"></i> Edit travel brief</button>
+      <section class="holiday-band" aria-label="Selected travel window"><div class="calendar-icon"><i data-lucide="calendar-range"></i></div><div><span class="eyebrow">YOUR NRW HOLIDAY WINDOW</span><h2 id="window-title">Summer holidays</h2><p id="window-dates"></p></div><div class="window-stat"><strong id="departure-count">0</strong><span>possible departure dates</span></div></section>
+      <div class="notice"><i data-lucide="info"></i><p><strong id="data-label">Planning examples, not live offers.</strong> <span id="data-note">Prices, routes and room availability below are illustrative. Add checked quotes for a real comparison.</span></p></div>
+      <div class="tabs" role="tablist" aria-label="Planner views"><button class="tab active" role="tab" aria-selected="true" data-view="discover"><i data-lucide="compass"></i> Discover</button><button class="tab" role="tab" aria-selected="false" data-view="compare"><i data-lucide="columns-3"></i> Compare <span id="compare-count" class="count">0</span></button><button class="tab" role="tab" aria-selected="false" data-view="quotes"><i data-lucide="notebook-pen"></i> My quotes <span id="quote-count" class="count">0</span></button></div>
+      <section id="discover-view" class="view">
+        <div class="results-toolbar"><div><h2>Find your balance</h2><p id="results-description"></p></div><div class="segmented" aria-label="Booking type"><button class="selected" data-mode="all">All</button><button data-mode="package">Pauschalreise</button><button data-mode="separate">Flight + hotel</button></div></div>
+        <div class="results-options"><label class="check"><input id="examples" type="checkbox" checked> Include planning examples</label><span>Ranked by your priorities <i data-lucide="arrow-down-wide-narrow"></i></span></div>
+        <div id="results" class="results-grid"></div>
+        <button id="show-more" class="secondary-button more-button" hidden>Show more options</button>
+        <section class="search-section"><div><span class="eyebrow">FROM SHORTLIST TO REAL PRICES</span><h2>Check the market</h2><p id="search-summary"></p></div><div class="market-fields"><label>Destination<select id="market-destination"></select></label><label>Departure airport<select id="market-airport"></select></label><label>Nights<select id="market-nights"></select></label><label>Departure date<select id="market-date"></select></label></div><div id="search-links" class="search-links"></div><p class="field-note">Search links open providers or web searches; dates, meal plan, child ages, baggage and whole-family occupancy must be confirmed there. No live inventory is connected.</p></section>
+      </section>
+      <section id="compare-view" class="view" hidden><div class="results-toolbar"><div><h2>The full picture</h2><p>Up to three options, with every cost in the same currency.</p></div><button id="clear-compare" class="quiet-button"><i data-lucide="x"></i> Clear</button></div><div id="comparison"></div></section>
+      <section id="quotes-view" class="view" hidden><div class="results-toolbar"><div><h2>Real quotes, collected by you</h2><p>All amounts in EUR, for the entire family and the entire stay.</p></div><button id="import-button" class="quiet-button"><i data-lucide="upload"></i> Import plan</button><input id="import-file" type="file" accept="application/json,.json" hidden></div>
+        <form id="quote-form" class="quote-form">
+          <div class="form-grid"><label class="wide">Hotel / offer name<input name="title" required maxlength="160" placeholder="Hotel name and family room type"></label><label>Booking type<select name="mode"><option value="package">Pauschalreise</option><option value="separate">Flight + hotel</option></select></label><label>Destination<select name="destination" id="quote-destination"></select></label><label>Airport<select name="airport" id="quote-airport"></select></label><label>Departure<input name="start" type="date" required></label><label>Nights<input name="nights" type="number" min="1" max="35" required value="7"></label><label>Confirmed room capacity<input name="capacity" type="number" min="1" max="20" required value="5"></label><label>Package total (€)<input name="base" type="number" min="0" step="0.01" required value="0"></label><label>Return flights, all guests (€)<input name="flights" type="number" min="0" step="0.01" required value="0"></label><label>Hotel, full stay (€)<input name="hotel" type="number" min="0" step="0.01" required value="0"></label><label>Baggage, return total (€)<input name="bags" type="number" min="0" step="0.01" required value="0"></label><label>Transfers, return total (€)<input name="transfer" type="number" min="0" step="0.01" required value="0"></label><label>Other costs (€)<input name="extras" type="number" min="0" step="0.01" required value="0"></label><label>One-way flight + layovers (min)<input name="flightMinutes" type="number" min="1" required value="215"></label><label>One-way resort transfer (min)<input name="transferMinutes" type="number" min="0" required value="60"></label><label>Family comfort (0–100)<input name="comfort" type="number" min="0" max="100" required value="80"></label><label>Price checked on<input name="checkedAt" type="date" required></label><label class="wide">Offer link (optional, HTTPS)<input name="url" type="url" placeholder="https://…"></label></div>
+          <div class="two-fields meal-fields"><label>Meal plan<select name="mealPlan"><option value="all-inclusive">All inclusive</option><option value="full-board">Full board (Vollpension)</option><option value="room-only">No meals (Ohne Verpflegung)</option><option value="other">Other / unspecified board</option></select></label><label>Extra meals / drinks, whole stay (€)<input name="meals" type="number" min="0" step="0.01" required value="0"></label></div>
+          <p class="field-note">Budget for meals when none are included, and drinks or snacks not covered by full board. Included food costs €0 extra.</p>
+          <div class="form-checks"><label class="check"><input name="direct" type="checkbox" checked> Direct flight</label><label class="check"><input name="confirmed" type="checkbox" required> I checked room occupancy and prices for everyone above</label></div>
+          <p class="field-note">Use ages on departure in the sidebar. Included items cost €0 here. Comfort is your assessment of room setup, flight times, kids' facilities, transfer and flexibility. Separate bookings do not automatically carry package-travel protections.</p><div class="form-footer"><p id="form-message" role="status"></p><button class="primary-button" type="submit"><i data-lucide="plus"></i> Save quote</button></div>
+        </form><div id="saved-quotes"></div>
+      </section>
+      <footer><span>Small travellers. Big memories.</span><button id="method-button" class="text-button"><i data-lucide="circle-help"></i> Ranking & assumptions</button></footer>
+    </main>
+  </div>
+  <dialog id="method-dialog">
+    <div class="dialog-header"><h2>What makes a good fit?</h2><button id="close-method" class="icon-button" aria-label="Close"><i data-lucide="x"></i></button></div>
+    <p>The score is a weighted average, not a hotel review or a prediction of availability.</p>
+    <dl>
+      <dt>Cost score</dt><dd>100 × (1 − total / (1.5 × your budget)), floored at zero. Over-budget options are excluded.</dd>
+      <dt>Comfort score</dt><dd>Your 0–100 assessment. Examples use invented destination-level scores, not verified hotel ratings.</dd>
+      <dt>Time score</dt><dd>100 × (1 − one-way door-to-resort minutes / 900), floored at zero.</dd>
+      <dt>Different flight legs</dt><dd>When independent outbound and return flights are entered, the time score uses the average of both one-way journeys, including each leg's flight and layover time. Every entered outbound fare is paired with every entered return fare; listed airlines are not a guarantee of route availability.</dd>
+      <dt>Door-to-resort time</dt><dd>Airport drive + 120 min check-in + flight including layovers + 45 min arrivals + resort transfer. It is an estimate, not a timetable.</dd>
+      <dt>Whole-family cost</dt><dd>Package OR return flights + full-stay hotel, plus return baggage, return transfers, extras, extra meals and drinks, return airport driving at your €/km rate, and parking for nights + 1 days.</dd>
+      <dt>Driving holidays</dt><dd>Accommodation + extras + meals + return distance × your car cost per km + return tolls/ferries + full-stay destination parking. No airport charges or flights are included. Journey time is one-way driving plus your break budget.</dd>
+      <dt>Corporate benefit</dt><dd>Only an instant discount accepted for this exact offer reduces upfront costs. The percentage applies to your entered eligible supplier amount, with minimum spend and optional cap. Cashback and unaccepted vouchers remain potential savings. Your company's 7% example is not independently verified. No voucher code is stored.</dd>
+      <dt>Final-price checks</dt><dd>No live booking provider is connected. Final-price-only results require a manually checked final pre-booking total for the exact itinerary, family and room. Supplier amounts must match after accepted instant discounts. Checks expire after 30 minutes as a recheck reminder; this is not a supplier price guarantee or reservation. Airport travel and estimated meal budgets are not supplier-confirmed prices.</dd>
+      <dt>Meal budgets in examples</dt><dd>No meals: €30 per adult and €18 per child per night. Full board: €8 per adult and €5 per child per night for extra drinks and snacks. These are illustrative allowances, not local restaurant prices. For saved quotes, enter your own full-stay extra budget.</dd>
+      <dt>Nights and nightly prices</dt><dd>Every whole-number stay from minimum through maximum is considered. The average price per night is the full trip total divided by its actual nights, for the whole family, not a hotel-only rate. Provider searches use the specific number of nights selected in Check the market.</dd>
+      <dt>School calendar</dt><dd>Both departure and return must fall within the inclusive holiday dates. Adjacent weekends and school-specific movable days are not assumed. Check your school's calendar.</dd>
+    </dl>
+    <p>Routes, seasonal suitability and prices in examples are not checked. All-zero weights produce a score of zero. Money and time are rounded for comparison.</p>
+  </dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>
