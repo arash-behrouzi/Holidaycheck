@@ -16,4 +16,6 @@ Ranked illustrative examples, NRW school-holiday dates, filters, provider websit
 
 The optional Duffel integration **does not run on GitHub Pages**. It needs a separately protected local server and private provider credentials. On the public static site the API request is not made. Direct airline, HolidayCheck, CHECK24, Ab-in-den-Urlaub, TUI, FeWo-direkt and Center Parcs links remain available.
 
+In-app previews of generic web searches show the exact trip/search brief rather than embedding Google results, because Google blocks search results inside app frames. **Open results in browser** opens the actual search. Saved direct offer links use a separate sandboxed preview and also retain an external browser fallback when a provider blocks embedding.
+
 Fonts, photos, the Lucide icon library and NRW holiday dates are loaded from their respective third-party services. The pages are public and have no login; do not enter sensitive personal information.

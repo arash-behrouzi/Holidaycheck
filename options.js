@@ -47,13 +47,34 @@
   $("#min-hotel-stars").addEventListener("change", event => { P.settings.minHotelStars = Number(event.target.value); P.update(); });
   $("#min-review-score").addEventListener("input", event => { P.settings.minReviewScore = Number(event.target.value); P.update(); });
   field("reviewScale").addEventListener("change", () => { field("reviewScore").max = field("reviewScale").value; });
-  document.body.insertAdjacentHTML("beforeend", `<dialog id="provider-dialog" aria-labelledby="provider-dialog-title"><div class="provider-preview-header"><div><h2 id="provider-dialog-title">Provider website</h2><p id="provider-dialog-trip"></p></div><div class="provider-preview-controls"><a id="provider-browser-link" class="quiet-button" target="_blank" rel="noopener noreferrer"><i data-lucide="external-link"></i> Open in browser</a><button type="button" id="close-provider" class="icon-button" aria-label="Close provider website" title="Close"><i data-lucide="x"></i></button></div></div><p id="provider-preview-kind" class="field-note"></p><p class="field-note provider-frame-notice">Some providers block embedded viewing or require cookies/sign-in. If the page stays blank or refuses to load, use Open in browser. Prices and availability must be checked on the provider's page; this preview does not verify them.</p><div class="provider-frame-slot"><iframe id="provider-frame" title="Selected trip on provider website" sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer"></iframe></div></dialog>`);
+  document.body.insertAdjacentHTML("beforeend", `<dialog id="provider-dialog" aria-labelledby="provider-dialog-title"><div class="provider-preview-header"><div><h2 id="provider-dialog-title">Provider search</h2><p id="provider-dialog-trip"></p></div><div class="provider-preview-controls"><a id="provider-browser-link" class="quiet-button" target="_blank" rel="noopener noreferrer"><i data-lucide="external-link"></i> Open results in browser</a><button type="button" id="close-provider" class="icon-button" aria-label="Close provider preview" title="Close"><i data-lucide="x"></i></button></div></div><p id="provider-preview-kind" class="field-note"></p><p id="provider-preview-blocked" class="provider-embed-status" hidden></p><div id="provider-search-details" class="provider-search-details" hidden></div><p class="field-note provider-frame-notice">Some providers block embedded viewing or require cookies/sign-in. If an exact offer page cannot be embedded, use Open results in browser. Prices and availability must be checked on the provider's page; this preview does not verify them.</p><div class="provider-frame-slot"><iframe id="provider-frame" title="Selected trip on provider website" sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer"></iframe></div></dialog>`);
   function openProviderPreview(link, quote) {
-    $("#provider-dialog-title").textContent = link.exact ? "Provider offer" : `Search ${link.name}`;
+    const plan = C.websiteSearchPlan(P.settings, { destination: quote.destination, airport: quote.airport, start: quote.start, nights: quote.nights });
+    $("#provider-dialog-title").textContent = link.exact ? "Provider offer" : `${link.name} search details`;
     $("#provider-dialog-trip").textContent = `${quote.title} · ${quote.start} to ${C.addDays(quote.start, quote.nights)} · ${quote.nights} nights · ${quote.adults} adults + ${quote.ages.length} children`;
-    $("#provider-preview-kind").textContent = link.exact ? `Saved offer link · ${new URL(link.url).hostname}` : "Search for similar offers only. This is not a booking page for the illustrative trip.";
+    $("#provider-preview-kind").textContent = link.exact ? `Saved offer link · ${new URL(link.url).hostname}` : "This is a search hand-off, not a live provider offer or availability result.";
     $("#provider-browser-link").href = link.url;
-    $("#provider-frame").src = link.url;
+    const frame = $("#provider-frame");
+    const details = $("#provider-search-details");
+    const blocked = $("#provider-preview-blocked");
+    const slot = frame.parentElement;
+    if (!link.exact) {
+      frame.removeAttribute("src"); frame.hidden = true;
+      $(".provider-frame-notice").hidden = true;
+      blocked.hidden = false;
+      blocked.textContent = "Search results are not embedded because Google blocks its pages in app frames. Review the trip details below, then choose Open results in browser to see the actual provider search.";
+      if (plan) {
+        details.innerHTML = `<h3>Search ${esc(link.name)} for this trip</h3><dl>${plan.brief.split("\n").map(line => { const separator = line.indexOf(":"); return separator > 0 ? `<div><dt>${esc(line.slice(0, separator))}</dt><dd>${esc(line.slice(separator + 1).trim())}</dd></div>` : `<div class="provider-note-row">${esc(line)}</div>`; }).join("")}</dl><p class="field-note">The provider performs the real search after you open the link. Verify the exact family room and final checkout total yourself.</p>`;
+        details.hidden = false;
+      } else {
+        details.textContent = "Open the provider search in a browser to see results."; details.hidden = false;
+      }
+      slot.classList.add("provider-frame-disabled");
+    } else {
+      frame.hidden = false; frame.src = link.url;
+      $(".provider-frame-notice").hidden = false;
+      blocked.hidden = true; details.hidden = true; slot.classList.remove("provider-frame-disabled");
+    }
     $("#provider-dialog").showModal();
   }
   function providerActions(quote) {
@@ -62,9 +83,9 @@
     const wrapper = document.createElement("div"); wrapper.dataset.optionMeta = ""; wrapper.className = "provider-actions";
     let selectedIndex = 0;
     const browser = document.createElement("a"); browser.className = "quiet-button"; browser.target = "_blank"; browser.rel = "noopener noreferrer";
-    const preview = document.createElement("button"); preview.type = "button"; preview.className = "quiet-button"; preview.innerHTML = '<i data-lucide="panel-top"></i> View in app';
-    preview.title = "Preview provider page; some sites require opening in browser";
-    const updateLink = () => { browser.href = links[selectedIndex].url; browser.innerHTML = `<i data-lucide="external-link"></i> ${links[selectedIndex].exact ? "Open provider offer" : "Search provider"}`; globalThis.lucide?.createIcons(); };
+    const preview = document.createElement("button"); preview.type = "button"; preview.className = "quiet-button";
+    preview.title = links[0].exact ? "Preview provider page; some sites require opening in browser" : "View the trip details for this provider search";
+    const updateLink = () => { browser.href = links[selectedIndex].url; browser.innerHTML = `<i data-lucide="external-link"></i> ${links[selectedIndex].exact ? "Open provider offer" : `Search ${esc(links[selectedIndex].name)} in browser`}`; preview.innerHTML = `<i data-lucide="panel-top"></i> ${links[selectedIndex].exact ? "View in app" : "View search details"}`; preview.title = links[selectedIndex].exact ? "Preview provider offer; some sites require opening in browser" : "View trip details; provider search results open in browser"; globalThis.lucide?.createIcons(); };
     if (links.length > 1) {
       const select = document.createElement("select"); select.className = "provider-selector"; select.setAttribute("aria-label", `Provider for ${quote.title}`);
       links.forEach((link, index) => { const option = document.createElement("option"); option.value = index; option.textContent = link.name; select.append(option); });
@@ -77,7 +98,7 @@
     return wrapper;
   }
   $("#close-provider").addEventListener("click", () => $("#provider-dialog").close());
-  $("#provider-dialog").addEventListener("close", () => { $("#provider-frame").removeAttribute("src"); });
+  $("#provider-dialog").addEventListener("close", () => { $("#provider-frame").removeAttribute("src"); $("#provider-frame").hidden = false; $("#provider-frame").parentElement.classList.remove("provider-frame-disabled"); $(".provider-frame-notice").hidden = false; $("#provider-preview-blocked").hidden = true; $("#provider-search-details").hidden = true; });
   function syncFinalFields() {
     const final = field("priceStage").value === "manual-final";
     $("#final-price-fields").hidden = !final;
