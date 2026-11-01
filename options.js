@@ -23,7 +23,7 @@
   websiteSection.querySelector(".field-note").textContent = "Provider pages may require re-entering your filters. Only the provider can confirm the final price, room capacity and availability.";
   const providerLayout = document.createElement("div"); providerLayout.className = "website-layout";
   $("#search-links").replaceWith(providerLayout); providerLayout.append(document.createElement("div")); providerLayout.firstElementChild.id = "search-links";
-  providerLayout.insertAdjacentHTML("beforeend", `<div class="trip-brief"><div class="brief-heading"><h3>Trip details</h3><button id="copy-trip" class="quiet-button" type="button"><i data-lucide="copy"></i> Copy</button></div><textarea id="trip-brief" readonly aria-label="Trip details for provider websites"></textarea><button id="add-checked-offer" type="button" class="primary-button"><i data-lucide="plus"></i> Add checked offer</button><div id="direct-airlines" class="direct-airlines"></div></div>`);
+  providerLayout.insertAdjacentHTML("beforeend", `<div class="trip-brief"><div class="brief-heading"><h3>Trip details</h3><button id="copy-trip" class="quiet-button" type="button"><i data-lucide="copy"></i> Copy</button></div><textarea id="trip-brief" readonly aria-label="Trip details for provider websites"></textarea><p id="provider-filter-note" class="field-note" hidden></p><button id="add-checked-offer" type="button" class="primary-button"><i data-lucide="plus"></i> Add checked offer</button><div id="direct-airlines" class="direct-airlines"></div></div>`);
   $("[data-view=discover]").innerHTML = '<i data-lucide="compass"></i> Discover';
   $("#discover-view>.results-toolbar h2").textContent = "Your ranked holiday options";
 
@@ -37,15 +37,24 @@
     for (const name of ["flights", "bags", "flightMinutes"]) field(name).readOnly = false;
   }
   const starOptions = Array.from({ length: 9 }, (_, index) => 1 + index / 2);
+  $(".form-grid").insertAdjacentHTML("beforeend", '<label>Stops each way<select name="stops"><option value="">Not provided</option><option value="0">Direct · 0 stops</option><option value="1">1 stop</option><option value="2">2 stops</option><option value="3">3 stops</option></select></label>');
+  $(".form-grid").insertAdjacentHTML("beforeend", '<label>Longest layover (minutes)<input name="layoverMinutes" type="number" min="0" max="1440" step="1" placeholder="e.g. 240"></label>');
   $(".option-switches").insertAdjacentHTML("afterend", `<section class="filter-section"><h3>Accommodation quality</h3><label>Minimum hotel stars<select id="min-hotel-stars"><option value="0">Any / unrated allowed</option>${starOptions.map(stars => `<option value="${stars}">${stars} stars or more</option>`).join("")}</select></label><label class="range-label meal-fields" for="min-review-score">Minimum guest review <strong id="min-review-label">Any</strong></label><input id="min-review-score" type="range" min="0" max="10" step="0.1" value="0"><div class="range-ends"><span>Any</span><span>10 / 10</span></div><p class="field-note">Review threshold uses a linear conversion to /10 from /5, /6 or /10. Sources and methodologies differ. Unrated options are excluded by positive thresholds. Planning examples have no real hotel ratings.</p></section>`);
+  const qualitySection = all(".filter-section").find(section => section.querySelector("h3")?.textContent.includes("Accommodation quality"));
+  qualitySection.insertAdjacentHTML("beforeend", '<p id="quality-filter-note" class="filter-hint" role="status" hidden></p>');
   $("#benefit-fields").insertAdjacentHTML("beforebegin", `<section class="quote-extra"><h3>Accommodation quality</h3><div class="form-grid"><label>Hotel stars<select name="hotelStars"><option value="">Unrated / not provided</option>${starOptions.map(stars => `<option value="${stars}">${stars} stars</option>`).join("")}</select></label><label>Guest review score (original)<input name="reviewScore" type="number" min="0" max="10" step="0.1" placeholder="e.g. 5.1"></label><label>Original review scale<select name="reviewScale"><option value="10">Out of 10</option><option value="6">Out of 6 (e.g. HolidayCheck)</option><option value="5">Out of 5</option></select></label><label class="wide">Review source<input name="reviewSource" maxlength="160" placeholder="e.g. HolidayCheck or Booking.com"></label></div><p class="field-note">Enter the property's actual classification and published guest score, not your personal comfort score. Leave unknown ratings blank. A recommendation percentage is not a review score.</p></section>`);
   function syncQuality() {
     $("#min-hotel-stars").value = P.settings.minHotelStars ?? 0;
     $("#min-review-score").value = P.settings.minReviewScore ?? 0;
     $("#min-review-label").textContent = P.settings.minReviewScore ? `${P.settings.minReviewScore.toFixed(1)} / 10` : "Any";
+    const active = Boolean(P.settings.minHotelStars || P.settings.minReviewScore);
+    $("#quality-filter-note").hidden = !active;
+    $("#quality-filter-note").textContent = active ? "Planning examples are scenarios, not reviewed hotels, and carry no star/review ratings. Positive minimums show only saved offers with sourced ratings; there is no live hotel-rating feed." : "";
   }
   $("#min-hotel-stars").addEventListener("change", event => { P.settings.minHotelStars = Number(event.target.value); P.update(); });
   $("#min-review-score").addEventListener("input", event => { P.settings.minReviewScore = Number(event.target.value); P.update(); });
+  field("direct").addEventListener("change", () => { if (field("direct").checked) { field("stops").value = "0"; field("layoverMinutes").value = "0"; } else { if (field("stops").value === "0") field("stops").value = ""; if (field("layoverMinutes").value === "0") field("layoverMinutes").value = ""; } });
+  field("stops").addEventListener("change", () => { field("direct").checked = field("stops").value === "0"; if (field("direct").checked) field("layoverMinutes").value = "0"; else if (field("layoverMinutes").value === "0") field("layoverMinutes").value = ""; });
   field("reviewScale").addEventListener("change", () => { field("reviewScore").max = field("reviewScale").value; });
   document.body.insertAdjacentHTML("beforeend", `<dialog id="provider-dialog" aria-labelledby="provider-dialog-title"><div class="provider-preview-header"><div><h2 id="provider-dialog-title">Provider search</h2><p id="provider-dialog-trip"></p></div><div class="provider-preview-controls"><a id="provider-browser-link" class="quiet-button" target="_blank" rel="noopener noreferrer"><i data-lucide="external-link"></i> Open results in browser</a><button type="button" id="close-provider" class="icon-button" aria-label="Close provider preview" title="Close"><i data-lucide="x"></i></button></div></div><p id="provider-preview-kind" class="field-note"></p><p id="provider-preview-blocked" class="provider-embed-status" hidden></p><div id="provider-search-details" class="provider-search-details" hidden></div><p class="field-note provider-frame-notice">Some providers block embedded viewing or require cookies/sign-in. If an exact offer page cannot be embedded, use Open results in browser. Prices and availability must be checked on the provider's page; this preview does not verify them.</p><div class="provider-frame-slot"><iframe id="provider-frame" title="Selected trip on provider website" sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer"></iframe></div></dialog>`);
   function openProviderPreview(link, quote) {
@@ -62,7 +71,7 @@
       frame.removeAttribute("src"); frame.hidden = true;
       $(".provider-frame-notice").hidden = true;
       blocked.hidden = false;
-      blocked.textContent = "Search results are not embedded because Google blocks its pages in app frames. Review the trip details below, then choose Open results in browser to see the actual provider search.";
+      blocked.textContent = "Provider search pages may require interactive forms and may block embedded display. Review the trip details below, then open the selected provider in your browser and enter the trip.";
       if (plan) {
         details.innerHTML = `<h3>Search ${esc(link.name)} for this trip</h3><dl>${plan.brief.split("\n").map(line => { const separator = line.indexOf(":"); return separator > 0 ? `<div><dt>${esc(line.slice(0, separator))}</dt><dd>${esc(line.slice(separator + 1).trim())}</dd></div>` : `<div class="provider-note-row">${esc(line)}</div>`; }).join("")}</dl><p class="field-note">The provider performs the real search after you open the link. Verify the exact family room and final checkout total yourself.</p>`;
         details.hidden = false;
@@ -165,7 +174,7 @@
     if (!destination || !start) { $("#search-links").innerHTML = ""; $("#search-summary").textContent = "No driving destination or valid stay matches this window."; return; }
     const terms = `${destination.name} ${destination.country} ${start} ${C.addDays(start, nights)} ${nights} nights ${settings.adults} adults ${settings.ages.length} children ages ${settings.ages.join(" ")}`;
     $("#search-summary").textContent = `${terms} · approx. ${destination.km} km / ${destination.minutes} driving minutes each way from Dortmund`;
-    $("#search-links").innerHTML = C.driveProviders.map(provider => `<a class="quiet-button" target="_blank" rel="noopener noreferrer" href="${esc(provider.url)}">${esc(provider.name)} ↗</a><a class="quiet-button" target="_blank" rel="noopener noreferrer" href="https://www.google.com/search?q=${encodeURIComponent(`site:${provider.domain} ${terms}`)}">${esc(provider.name)} search ↗</a>`).join("");
+    $("#search-links").innerHTML = C.driveProviders.map(provider => `<a class="quiet-button" target="_blank" rel="noopener noreferrer" href="${esc(provider.url)}">${esc(provider.name)} ↗</a>`).join("");
   }
   function renderEmptyResults() {
     if (P.ranked.length) return;
@@ -174,7 +183,7 @@
     const messages = {
       "no-data": ["No saved quotes yet", "No provider offers have been saved to your shortlist. Website searches above do not require a travel API account."],
       "final-price": ["No final-price-checked offers", "No recent manually checked final supplier totals are saved. Advertised prices and planning examples cannot count as confirmed offers; no live booking API is connected."],
-      quality: ["No matching rated stays", "The minimum hotel stars or guest-review score exclude the otherwise matching options. Planning examples and quotes with missing ratings do not meet a positive rating minimum."],
+      quality: ["No matching rated stays", "Only saved offers with sourced hotel ratings can pass these minimums. Planning examples are intentionally unrated, and no live hotel inventory is searched."],
       "meal-plan": ["No matching meal plan", "Other meal plans match these filters, but the selected meal plan does not. This does not mean the provider has no availability."],
       dates: ["No valid overnight travel window", "The selected holiday dates are unavailable, in the past, or too short for the requested nights. Check the calendar and minimum stay."],
       filters: ["No matching options", "The loaded quotes or examples do not match the selected family, dates, budget, destination, travel type or journey limits. No live provider inventory is being searched."]
@@ -189,13 +198,30 @@
     const nights = Number($("#market-nights").value);
     const context = { demo: true, title: "Find a real stay", travelMode: settings.driving ? "drive" : "flight", mode: settings.mode === "all" ? (settings.driving ? "holiday-home" : "package") : settings.mode, destination: $("#market-destination").value, airport: settings.driving ? "" : $("#market-airport").value, start, nights, adults: settings.adults, ages: settings.ages, mealPlan: settings.mealPlan };
     const links = C.providerLinks(context);
-    if (links.length && reason !== "no-data") {
+    if (links.length && reason !== "no-data" && reason !== "quality") {
       const providers = document.createElement("div"); providers.className = "empty-actions";
       links.forEach(link => { const anchor = document.createElement("a"); anchor.className = "quiet-button"; anchor.href = link.url; anchor.target = "_blank"; anchor.rel = "noopener noreferrer"; anchor.textContent = `Search ${link.name} ↗`; providers.append(anchor); });
       panel.append(providers);
-      const note = document.createElement("p"); note.className = "field-note"; note.textContent = "Web searches for the trip selected in Check the market, not confirmed or bookable offers."; panel.append(note);
+        const note = document.createElement("p"); note.className = "field-note"; note.textContent = "Provider websites may ask you to enter dates and passenger details again. These are website hand-offs, not confirmed or bookable offers."; panel.append(note);
     }
     const actions = document.createElement("div"); actions.className = "empty-actions";
+    if (reason === "quality") {
+      const currentPlan = currentWebsitePlan();
+      const qualityLinks = currentPlan?.links.filter(link => !link.name.toLowerCase().includes("flights")) || [];
+      if (qualityLinks.length) {
+        if (settings.mode === "package" || settings.driving) {
+          const providerNote = document.createElement("p"); providerNote.className = "field-note";
+          providerNote.textContent = settings.driving ? "The driving-provider links do not receive these rating minimums; apply them on the provider site." : "The Booking.com link opens a separate hotel stay search with supported rating filters. HolidayCheck does not receive these minimums; apply them manually on package results.";
+          panel.append(providerNote);
+        }
+        const ratedSearches = document.createElement("div"); ratedSearches.className = "empty-actions";
+        qualityLinks.forEach(link => { const anchor = document.createElement("a"); anchor.className = "quiet-button"; anchor.href = link.url; anchor.target = "_blank"; anchor.rel = "noopener noreferrer"; anchor.textContent = link.name.toLowerCase().includes("holidaycheck") ? "Open HolidayCheck package search ↗" : `Find rated stays on ${link.name} ↗`; ratedSearches.append(anchor); });
+        panel.append(ratedSearches);
+      }
+      const clearRatings = document.createElement("button"); clearRatings.type = "button"; clearRatings.className = "secondary-button"; clearRatings.textContent = "Clear star and review minimums";
+      clearRatings.addEventListener("click", () => { P.settings.minHotelStars = 0; P.settings.minReviewScore = 0; P.update(); P.toast("Rating minimums cleared. Examples still have no verified hotel ratings."); });
+      actions.append(clearRatings);
+    }
     const add = document.createElement("button"); add.type = "button"; add.className = "quiet-button"; add.innerHTML = '<i data-lucide="plus"></i> Add real quote';
     add.addEventListener("click", () => $("#add-checked-offer").click()); actions.append(add);
     if (!settings.examples || settings.confirmedOnly || settings.minHotelStars || settings.minReviewScore) {
@@ -262,9 +288,19 @@
     $("#copy-trip").disabled = !plan;
     $("#add-checked-offer").disabled = !plan;
     $("#trip-brief").value = plan?.brief || "Select a destination, dates and an airport for flight holidays.";
+    $("#provider-filter-note").textContent = plan?.bookingRatingNote || "";
+    $("#provider-filter-note").hidden = !plan?.bookingRatingNote;
+    const hasQualityMinimums = Boolean(P.settings.minHotelStars || P.settings.minReviewScore);
+    $("#search-filter-note").textContent = P.settings.driving
+      ? "Driving-provider searches do not receive hotel rating filters. Apply minimums on the provider site."
+      : P.settings.mode === "package" && hasQualityMinimums
+        ? "Booking.com hotels opens a separate stay search with supported rating filters; HolidayCheck package results must be filtered manually. Review minimums above 9/10 also need manual verification."
+        : P.settings.mode === "package"
+          ? "HolidayCheck package links do not receive preset star/review filters. Select a positive rating minimum to add a separate filtered Booking.com hotel search."
+          : "Provider links are hand-offs, not live results. Booking.com applies supported rating filters; HolidayCheck package results require manual filtering. Review minimums above 9/10 need manual verification.";
     if (!plan) { $("#search-links").textContent = "No valid trip selected."; $("#direct-airlines").replaceChildren(); return; }
-    $("#search-links").innerHTML = plan.links.map(link => `<div class="website-provider"><div><strong>${esc(link.name)}</strong><small>${esc(link.domain)}</small></div><div class="website-provider-actions"><a class="quiet-button" href="${esc(link.url)}" target="_blank" rel="noopener noreferrer" data-provider-home="${esc(link.name)}"><i data-lucide="external-link"></i> Open website</a><a class="text-button" href="${esc(link.searchUrl)}" target="_blank" rel="noopener noreferrer"><i data-lucide="search"></i> Web search</a></div></div>`).join("");
-    $("#direct-airlines").innerHTML = P.settings.driving ? "" : `<h3>Direct airlines</h3><div>${C.airlines.map(airline => `<a href="${esc(airline.url)}" target="_blank" rel="noopener noreferrer">${esc(airline.name)} ↗</a>`).join("")}</div>`;
+    $("#search-links").innerHTML = plan.links.map(link => `<div class="website-provider"><div><strong>${esc(link.name)}</strong><small>${esc(link.domain)}</small></div><div class="website-provider-actions"><a class="quiet-button" href="${esc(link.url)}" target="_blank" rel="noopener noreferrer" data-provider-home="${esc(link.name)}"><i data-lucide="external-link"></i> Open website</a></div></div>`).join("");
+    $("#direct-airlines").innerHTML = P.settings.driving || P.settings.mode !== "separate" ? "" : `<p class="field-note">For operator-direct fares, you can also check an airline website:</p><div>${C.airlines.map(airline => `<a href="${esc(airline.url)}" target="_blank" rel="noopener noreferrer">${esc(airline.name)} ↗</a>`).join("")}</div>`;
   }
   $("#copy-trip").addEventListener("click", async () => {
     const plan = currentWebsitePlan(); if (!plan) return;
@@ -279,7 +315,7 @@
     field("mode").value = P.settings.driving ? (P.settings.mode === "holiday-park" ? "holiday-park" : "holiday-home") : (P.settings.mode === "separate" ? "separate" : "package");
     field("start").value = plan.start; field("nights").value = plan.nights; field("capacity").value = P.settings.adults + P.settings.ages.length;
     field("mealPlan").value = P.settings.mealPlan === "any" ? "other" : P.settings.mealPlan;
-    field("checkedAt").value = new Date().toLocaleDateString("sv-SE"); field("direct").checked = P.settings.directOnly;
+    field("checkedAt").value = new Date().toLocaleDateString("sv-SE"); field("direct").checked = P.settings.directOnly; field("stops").value = P.settings.directOnly ? "0" : ""; field("layoverMinutes").value = P.settings.directOnly ? "0" : "";
     field("reviewScore").max = "10"; field("priceStage").dispatchEvent(new Event("change"));
     if (P.settings.driving) roadDefaults();
     P.switchView("quotes"); field("title").focus();
@@ -322,7 +358,13 @@
     $("#airline-context").textContent = `${airport} → ${destination} on ${start} · ${destination} → ${airport} on ${C.addDays(start, nights)} · ${P.settings.adults} adults + ${P.settings.ages.length} children · 6 listed airlines / 36 potential airline pairings`;
     if (context === fareContext) return;
     fareContext = context; farePairs = []; clearLegs();
-    $("#airline-fares").innerHTML = `<table class="comparison-table fare-table"><thead><tr><th>Direct airline check</th><th>Outbound (all travellers)</th><th>Return (all travellers)</th></tr></thead><tbody>${C.airlines.map(airline => `<tr><th><a href="${esc(airline.url)}" target="_blank" rel="noopener noreferrer">${esc(airline.name)} ↗</a>${["outbound", "inbound"].map(direction => { const route = direction === "outbound" ? `${airport} to ${destination} ${start}` : `${destination} to ${airport} ${C.addDays(start, nights)}`; return `<small><a target="_blank" rel="noopener noreferrer" href="https://www.google.com/search?q=${encodeURIComponent(`site:${new URL(airline.url).hostname} ${route} ${P.settings.adults} adults ${P.settings.ages.length} children ages ${P.settings.ages.join(" ")}`)}">${direction === "outbound" ? "Outbound" : "Return"} search ↗</a></small>`; }).join("")}</th>${["outbound", "inbound"].map(direction => `<td><div class="fare-fields">${[["price", "Fare (€)", "0.01"], ["baggage", "Bags (€)", "0"], ["minutes", "Flight + stops (min)", "1"]].map(([key, label, min]) => `<label>${label}<input type="number" min="${min}" step="${key === "minutes" ? "1" : "0.01"}" data-carrier="${airline.id}" data-direction="${direction}" data-leg-field="${key}" aria-label="${esc(airline.name)} ${direction} ${label}" ${key === "baggage" ? 'value="0"' : ""}></label>`).join("")}</div></td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    const airlineRows = C.airlines.map(airline => {
+      const routeText = direction => direction === "outbound" ? `${airport} → ${destination} · ${start}` : `${destination} → ${airport} · ${C.addDays(start, nights)}`;
+      const routeNotes = ["outbound", "inbound"].map(direction => `<small>${direction === "outbound" ? "Outbound" : "Return"}: ${esc(routeText(direction))}</small>`).join("");
+      const fareCells = ["outbound", "inbound"].map(direction => `<td><div class="fare-fields">${[["price", "Fare (€)", "0.01"], ["baggage", "Bags (€)", "0"], ["minutes", "Flight + stops (min)", "1"]].map(([key, label, min]) => `<label>${label}<input type="number" min="${min}" step="${key === "minutes" ? "1" : "0.01"}" data-carrier="${airline.id}" data-direction="${direction}" data-leg-field="${key}" aria-label="${esc(airline.name)} ${direction} ${label}" ${key === "baggage" ? 'value="0"' : ""}></label>`).join("")}</div></td>`).join("");
+      return `<tr><th><a href="${esc(airline.url)}" target="_blank" rel="noopener noreferrer">${esc(airline.name)} ↗</a>${routeNotes}</th>${fareCells}</tr>`;
+    }).join("");
+    $("#airline-fares").innerHTML = `<table class="comparison-table fare-table"><thead><tr><th>Direct airline check</th><th>Outbound (all travellers)</th><th>Return (all travellers)</th></tr></thead><tbody>${airlineRows}</tbody></table>`;
     updatePairs();
   }
   function updatePairs() {

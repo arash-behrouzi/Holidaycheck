@@ -22,7 +22,7 @@
   optionalApi.addEventListener("toggle", () => { if (optionalApi.open) checkConnection(); });
   function settingsContext() {
     const settings = P.settings;
-    return JSON.stringify([settings.adults, settings.ages, settings.driving, settings.directOnly, settings.mixFlights, settings.minNights, settings.maxNights, settings.holidayId, settings.airports, settings.destinations, settings.maxDrive]);
+    return JSON.stringify([settings.adults, settings.ages, settings.driving, settings.directOnly, settings.maxLayoverMinutes, settings.mixFlights, settings.minNights, settings.maxNights, settings.holidayId, settings.airports, settings.destinations, settings.maxDrive]);
   }
   function input() {
     const holiday = P.holiday();
@@ -100,8 +100,16 @@
     if (!segment.passengerBaggage?.length || segment.passengerBaggage.some(value => value === null)) return "Baggage allowance not fully supplied; check with provider.";
     return segment.passengerBaggage.map((bags, index) => `Traveller ${index + 1}: ${bags.length ? bags.map(bag => `${bag.quantity ?? "?"} ${bag.type}`).join(", ") : "no listed allowance"}`).join(" · ");
   }
+  function journeyLayoverMinutes(journey) {
+    return Math.max(0, ...journey.segments.slice(1).map((segment, index) => {
+      const previousArrival = Date.parse(journey.segments[index].arrivingAt);
+      const nextDeparture = Date.parse(segment.departingAt);
+      return Number.isFinite(previousArrival) && Number.isFinite(nextDeparture) ? Math.max(0, Math.round((nextDeparture - previousArrival) / 60000)) : 0;
+    }));
+  }
+  const itineraryLayoverMinutes = itinerary => Math.max(0, ...itinerary.journeys.map(journeyLayoverMinutes));
   function renderResults() {
-    $("#live-results").innerHTML = results.map(result => `<article class="live-flight"><div class="live-flight-heading"><div><strong>${result.live ? "Live provider fare" : "TEST OFFER — NOT A LIVE FARE"}</strong><p>${esc(searchedInput.origin)} ↔ ${esc(searchedInput.destination)} · ${result.passengerCount} travellers · ${result.independent ? "independent tickets" : "round trip"}</p></div><div><strong class="price">${money(result.amount)}</strong><p class="price-note">flight fare + taxes, whole family</p></div></div>${result.journeys.map((journey, index) => `<section class="flight-journey"><h3>${index ? "Return" : "Outbound"} · ${journey.minutes} minutes including stops</h3>${journey.segments.map(segment => `<p><strong>${esc(segment.operatingCarrier)}</strong> ${esc(segment.flightNumber)} · ${esc(segment.origin)} → ${esc(segment.destination)}<br>${esc(segment.departingAt)} → ${esc(segment.arrivingAt)}</p><p class="field-note">${esc(baggageText(segment))}</p>`).join("")}</section>`).join("")}<p class="field-note">Refreshed ${esc(new Date(result.checkedAt).toLocaleString())} · supplier expiry ${esc(new Date(result.expiresAt).toLocaleString())}. Not held. ${result.priceChanged ? "Price changed during refresh; this is the updated amount." : ""}</p><p class="field-note">${esc(result.scope)} Optional baggage services returned: ${result.availableBaggageServices.length}. No hotel, package, corporate voucher or payment-method total is confirmed.</p><div class="live-commands"><button type="button" class="quiet-button" data-live-refresh="${esc(result.id)}"><i data-lucide="refresh-cw"></i> Refresh provider price</button><button type="button" class="quiet-button" data-live-copy="${esc(result.id)}"><i data-lucide="copy"></i> Use as quote starting point</button></div></article>`).join("");
+    $("#live-results").innerHTML = results.map(result => `<article class="live-flight"><div class="live-flight-heading"><div><strong>${result.live ? "Live provider fare" : "TEST OFFER — NOT A LIVE FARE"}</strong><p>${esc(searchedInput.origin)} ↔ ${esc(searchedInput.destination)} · ${result.passengerCount} travellers · ${result.independent ? "independent tickets" : "round trip"}</p></div><div><strong class="price">${money(result.amount)}</strong><p class="price-note">flight fare + taxes, whole family</p></div></div>${result.journeys.map((journey, index) => `<section class="flight-journey"><h3>${index ? "Return" : "Outbound"} · ${journey.segments.length - 1} stops · max layover ${journeyLayoverMinutes(journey)} min · ${journey.minutes} minutes total</h3>${journey.segments.map(segment => `<p><strong>${esc(segment.operatingCarrier)}</strong> ${esc(segment.flightNumber)} · ${esc(segment.origin)} → ${esc(segment.destination)}<br>${esc(segment.departingAt)} → ${esc(segment.arrivingAt)}</p><p class="field-note">${esc(baggageText(segment))}</p>`).join("")}</section>`).join("")}<p class="field-note">Refreshed ${esc(new Date(result.checkedAt).toLocaleString())} · supplier expiry ${esc(new Date(result.expiresAt).toLocaleString())}. Not held. ${result.priceChanged ? "Price changed during refresh; this is the updated amount." : ""}</p><p class="field-note">${esc(result.scope)} Optional baggage services returned: ${result.availableBaggageServices.length}. No hotel, package, corporate voucher or payment-method total is confirmed.</p><div class="live-commands"><button type="button" class="quiet-button" data-live-refresh="${esc(result.id)}"><i data-lucide="refresh-cw"></i> Refresh provider price</button><button type="button" class="quiet-button" data-live-copy="${esc(result.id)}"><i data-lucide="copy"></i> Use as quote starting point</button></div></article>`).join("");
     globalThis.lucide?.createIcons(); updateButtons();
   }
   $("#live-search").addEventListener("click", async () => {
@@ -112,8 +120,10 @@
     try {
       const data = await post("/api/flights/search", request);
       if (currentOperation !== operation) return;
-      searchedInput = request; searchId = data.searchId; results = data.itineraries;
-      $("#live-message").textContent = `${results.length} refreshed flight itineraries · ${data.mode === "live" ? "LIVE" : "TEST DATA ONLY"}. ${data.scope} ${data.warnings.join(" ")}`;
+      searchedInput = request; searchId = data.searchId;
+      const overLayoverLimit = data.itineraries.filter(itinerary => itineraryLayoverMinutes(itinerary) > P.settings.maxLayoverMinutes).length;
+      results = data.itineraries.filter(itinerary => itineraryLayoverMinutes(itinerary) <= P.settings.maxLayoverMinutes);
+      $("#live-message").textContent = `${results.length} refreshed flight itineraries within the ${P.settings.maxLayoverMinutes / 60}h maximum layover · ${overLayoverLimit} longer itineraries excluded · ${data.mode === "live" ? "LIVE" : "TEST DATA ONLY"}. ${data.scope} ${data.warnings.join(" ")}`;
       renderResults();
     } catch (error) { if (currentOperation === operation) $("#live-message").textContent = `Search failed: ${error.message}`; }
     finally { busy = false; updateButtons(); }
@@ -145,6 +155,8 @@
       form.elements.transfer.value = "0"; form.elements.extras.value = "0"; form.elements.meals.value = "0"; form.elements.url.value = "";
       form.elements.benefitAccepted.checked = false; form.elements.finalAcknowledged.checked = false; form.elements.confirmed.checked = false;
       form.elements.direct.checked = result.journeys.every(journey => journey.segments.length === 1);
+      form.elements.stops.value = String(Math.max(...result.journeys.map(journey => journey.segments.length - 1)));
+      form.elements.layoverMinutes.value = String(itineraryLayoverMinutes(result));
       form.elements.priceStage.value = "estimate"; form.elements.priceStage.dispatchEvent(new Event("change"));
       form.elements.title.value = "Flight fare via Duffel — accommodation not yet checked";
       P.switchView("quotes"); P.toast("Flight amount copied as an unverified starting point. Add hotel, bags and fees; verify every supplier before saving a final price.");
